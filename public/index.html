@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATEM Multiview Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1a1a1a;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Roboto Condensed', sans-serif;
+            cursor: default;
+        }
+
+        /* The container for the video */
+        #monitor-frame {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #video-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+            /* Hidden until stream starts */
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 20;
+            /* Above the grid */
+        }
+
+        /* Overlay for status/errors */
+        #status-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: transparent !important;
+            /* Force Transparency */
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Multiview Grid Layout - PERMANENTLY VISIBLE */
+        .multiview-grid {
+            display: grid;
+            position: fixed;
+            /* Use Fixed to guarantee screen cover */
+            top: 0;
+            left: 0;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-rows: 1.5fr 1fr;
+            gap: 2px;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 1;
+            /* Lowest level */
+        }
+
+        .mv-box {
+            background: #333;
+            /* Lighter Grey to be more visible */
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border: 1px solid #555;
+            /* Visible border */
+            z-index: 2;
+            /* Force visibility */
+        }
+
+        /* Top Row: Preview and Program */
+        .mv-preview {
+            grid-column: 1 / 3;
+            grid-row: 1;
+            border: 2px solid #00b500;
+            /* Green Tally */
+        }
+
+        .mv-program {
+            grid-column: 3 / 5;
+            grid-row: 1;
+            border: 2px solid #c90000;
+            /* Red Tally */
+        }
+
+        /* Bottom Row: Cameras */
+        .mv-cam1 {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .mv-cam2 {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        .mv-cam3 {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .mv-cam4 {
+            grid-column: 4;
+            grid-row: 2;
+        }
+
+        .label {
+            position: absolute;
+            bottom: 10px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 8px;
+            font-size: 14px;
+            border-radius: 2px;
+            text-transform: uppercase;
+        }
+
+        .tally-label {
+            font-weight: bold;
+        }
+
+        .preview-label {
+            color: #00b500;
+        }
+
+        .program-label {
+            color: #c90000;
+        }
+
+        .placeholder-text {
+            color: #444;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .status-text {
+            color: #666;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            animation: pulse 2s infinite;
+            margin-top: 20px;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Hide interface elements when hidden class applied */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Fullscreen hint */
+        .hint {
+            position: absolute;
+            bottom: 20px;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 0.8rem;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        body.inactive {
+            cursor: none;
+        }
+
+        body.inactive .hint {
+            opacity: 0;
+        }
+
+        /* Settings Button */
+        #settings-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.2s;
+            font-size: 20px;
+        }
+
+        #settings-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        /* Settings Modal */
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .settings-panel {
+            background: #222;
+            border: 1px solid #333;
+            padding: 30px;
+            border-radius: 8px;
+            width: 300px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .settings-panel h2 {
+            margin: 0 0 20px 0;
+            color: white;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #888;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            background: #111;
+            border: 1px solid #444;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-sizing: border-box;
+            /* Fix padding width issue */
+        }
+
+        .btn-save {
+            width: 100%;
+            background: #00b500;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .btn-save:hover {
+            background: #009900;
+        }
+
+        .btn-cancel {
+            width: 100%;
+            background: transparent;
+            color: #666;
+            border: none;
+            padding: 10px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
+        .btn-cancel:hover {
+            color: #888;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="monitor-frame">
+        <!-- 1. Background Grid (Always Visible) -->
+        <div class="multiview-grid">
+            <!-- Preview -->
+            <div class="mv-box mv-preview">
+                <span class="placeholder-text">NO SIGNAL</span>
+                <div class="label tally-label preview-label">Preview</div>
+            </div>
+            <!-- Program -->
+            <div class="mv-box mv-program">
+                <span class="placeholder-text">NO SIGNAL</span>
+                <div class="label tally-label program-label">Program</div>
+            </div>
+            <!-- Cameras -->
+            <div class="mv-box mv-cam1">
+                <div class="label">Camera 1</div>
+            </div>
+            <div class="mv-box mv-cam2">
+                <div class="label">Camera 2</div>
+            </div>
+            <div class="mv-box mv-cam3">
+                <div class="label">Camera 3</div>
+            </div>
+            <div class="mv-box mv-cam4">
+                <div class="label">Camera 4</div>
+            </div>
+        </div>
+
+        <!-- 2. Status Overlay (Text/Messages on top) -->
+        <div id="status-overlay">
+            <!-- <div class="status-text" id="status-text">WAITING FOR SIGNAL</div> -->
+        </div>
+
+        <canvas id="video-canvas"></canvas>
+        <div class="hint">DOUBLE CLICK FOR FULLSCREEN</div>
+
+        <!-- Settings Button -->
+        <div id="settings-btn" onclick="openSettings()">⚙</div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="hidden">
+            <div class="settings-panel">
+                <h2>Settings</h2>
+                <div class="form-group">
+                    <label>ATEM IP Address</label>
+                    <input type="text" id="ip-input" placeholder="192.168.1.50">
+                </div>
+                <button class="btn-save" onclick="saveSettings()">Save & Connect</button>
+                <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="jsmpeg.min.js"></script>
+    <script>
+        const canvas = document.getElementById('video-canvas');
+        const statusOverlay = document.getElementById('status-overlay');
+        const statusText = document.getElementById('status-text');
+        const url = `ws://${window.location.host}/`;
+
+        let player = null;
+        let inactivityTimeout;
+
+        // --- Video Player Logic ---
+        function startPlayer() {
+            if (player) {
+                player.destroy();
+            }
+            player = new JSMpeg.Player(url, {
+                canvas: canvas,
+                audio: false,
+                autoplay: true,
+                onPlay: () => {
+                    statusOverlay.classList.add('hidden');
+                    canvas.style.display = 'block'; // Show video
+                    console.log('Stream playing');
+                },
+                onPause: () => {
+                    // showStatus('PAUSED');
+                },
+                onEnded: () => {
+                    // showStatus('SIGNAL LOST - RETRYING');
+                    statusOverlay.classList.remove('hidden');
+                    canvas.style.display = 'none'; // Hide video
+                    setTimeout(startPlayer, 2000); // Retry
+                },
+                onStalled: () => {
+                    // Optional: show buffering state, or just wait
+                }
+            });
+        }
+
+        startPlayer();
+
+        // --- Interaction Logic ---
+
+        // Double click to toggle fullscreen
+        document.body.addEventListener('dblclick', toggleFullScreen);
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(e => console.log(e));
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // Auto-hide cursor
+        function resetActivity() {
+            document.body.classList.remove('inactive');
+            clearTimeout(inactivityTimeout);
+            inactivityTimeout = setTimeout(() => {
+                document.body.classList.add('inactive');
+            }, 3000);
+        }
+
+        document.addEventListener('mousemove', resetActivity);
+        document.addEventListener('click', resetActivity);
+        resetActivity();
+
+        // --- Data Channel Logic (Tally Lights) ---
+        const dataUrl = `ws://${window.location.host}/data`;
+        const dataWs = new WebSocket(dataUrl);
+
+        dataWs.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'atem_state') {
+                updateTallyLights(msg.data);
+            }
+        };
+
+        function updateTallyLights(state) {
+            // Reset borders
+            document.querySelectorAll('.mv-box').forEach(el => {
+                el.style.borderColor = '#555'; // Default Grey
+            });
+
+            // Set Preview (Green)
+            // Note: Camera 1 is usually input 1, Cam 2 is 2, etc.
+            // Adjust logic if you use different mapping!
+            if (state.preview > 0) updateBoxBorder(state.preview, '#00b500');
+
+            // Set Program (Red)
+            if (state.program > 0) updateBoxBorder(state.program, '#c90000');
+        }
+
+        function updateBoxBorder(inputId, color) {
+            // Mapping: Input ID -> CSS Class
+            // Assuming: 1=Cam1, 2=Cam2, 3=Cam3, 4=Cam4
+            // You might need to adjust this depending on your ATEM setup
+            let selector = '';
+            if (inputId === 1) selector = '.mv-cam1';
+            if (inputId === 2) selector = '.mv-cam2';
+            if (inputId === 3) selector = '.mv-cam3';
+            if (inputId === 4) selector = '.mv-cam4';
+
+            // Also handle Preview/Program windows themselves if needed?
+            // Usually local multiview just highlights the source.
+
+            if (selector) {
+                const box = document.querySelector(selector);
+                if (box) box.style.borderColor = color;
+            }
+        }
+
+        // --- Settings Logic ---
+        const modal = document.getElementById('settings-modal');
+        const ipInput = document.getElementById('ip-input');
+
+        function openSettings() {
+            modal.classList.remove('hidden');
+            // Fetch current settings
+            fetch('/api/settings')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.atemIp) ipInput.value = data.atemIp;
+                });
+        }
+
+        function closeSettings() {
+            modal.classList.add('hidden');
+        }
+
+        function saveSettings() {
+            const newIp = ipInput.value;
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ atemIp: newIp })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    alert('Settings Saved! ATEM connection reloading...');
+                    closeSettings();
+                })
+                .catch(err => alert('Error saving settings'));
+        }
+
+    </script>
+</body>
+
+</html>
