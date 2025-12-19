@@ -29,12 +29,29 @@ try {
 
 // --- ATEM CONNECTION ---
 const myAtem = new Atem();
-let atemState = { preview: 0, program: 0 };
+let atemState = {
+    preview: 0,
+    program: 0,
+    recording: false,
+    streaming: false,
+    inputs: {}
+};
 let atemConnected = false;
 
 myAtem.on('connected', () => {
     atemConnected = true;
     console.log('✅ ATEM Connected!');
+
+    // Populate initial inputs
+    const inputs = myAtem.state.inputs;
+    for (const id in inputs) {
+        atemState.inputs[id] = inputs[id].shortName || `Cam ${id}`;
+    }
+
+    // Check initial status
+    if (myAtem.state.recording) atemState.recording = myAtem.state.recording.status.state === 2; // 2 = Recording? Check docs or assume active
+    if (myAtem.state.streaming) atemState.streaming = myAtem.state.streaming.status.state === 2;
+
     broadcastAtemState();
 });
 
@@ -44,15 +61,43 @@ myAtem.on('disconnected', () => {
 });
 
 myAtem.on('stateChanged', (state, pathToChange) => {
+    let changed = false;
+
+    // 1. Mix Effects (Cuts/Auto)
     const me = state.video.mixEffects[0];
     if (me) {
-        // Only broadcast if changed
-        if (atemState.preview !== me.previewInput || atemState.program !== me.programInput) {
-            atemState.preview = me.previewInput;
-            atemState.program = me.programInput;
-            broadcastAtemState();
+        if (atemState.preview !== me.previewInput) { atemState.preview = me.previewInput; changed = true; }
+        if (atemState.program !== me.programInput) { atemState.program = me.programInput; changed = true; }
+    }
+
+    // 2. Input Names (Renaming)
+    // simplistic check: if paths contain 'inputs'
+    if (pathToChange.some(p => p.includes('inputs'))) {
+        const inputs = state.inputs;
+        for (const id in inputs) {
+            const name = inputs[id].shortName;
+            if (atemState.inputs[id] !== name) {
+                atemState.inputs[id] = name;
+                changed = true;
+            }
         }
     }
+
+    // 3. Recording/Streaming Status
+    // Enum: 1=Idle, 2=Active (usually)
+    if (state.recording && state.recording.status) {
+        const isRec = state.recording.status.state === (1 << 1); // Often bitmask or enum. Let's assume > 0 or specific enum. 
+        // Actually commonly: 0=Idle, 1=Booting, 2=Recording
+        const isActive = state.recording.status.state === 2;
+        if (atemState.recording !== isActive) { atemState.recording = isActive; changed = true; }
+    }
+
+    if (state.streaming && state.streaming.status) {
+        const isActive = state.streaming.status.state === 2; // 2 = Streaming
+        if (atemState.streaming !== isActive) { atemState.streaming = isActive; changed = true; }
+    }
+
+    if (changed) broadcastAtemState();
 });
 
 function connectAtem() {

@@ -314,6 +314,48 @@
         .btn-cancel:hover {
             color: #888;
         }
+
+        /* --- Status Bar --- */
+        #bottom-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+            pointer-events: none;
+            /* Let clicks pass */
+        }
+
+        .status-pill {
+            display: inline-block;
+            background: #222;
+            color: #555;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .status-pill.active {
+            background: #c90000;
+            color: white;
+            box-shadow: 0 0 10px rgba(200, 0, 0, 0.5);
+        }
+
+        #production-clock {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        }
     </style>
 </head>
 
@@ -334,22 +376,31 @@
             </div>
             <!-- Cameras -->
             <div class="mv-box mv-cam1">
-                <div class="label">Camera 1</div>
+                <div class="label" id="label-1">Camera 1</div>
             </div>
             <div class="mv-box mv-cam2">
-                <div class="label">Camera 2</div>
+                <div class="label" id="label-2">Camera 2</div>
             </div>
             <div class="mv-box mv-cam3">
-                <div class="label">Camera 3</div>
+                <div class="label" id="label-3">Camera 3</div>
             </div>
             <div class="mv-box mv-cam4">
-                <div class="label">Camera 4</div>
+                <div class="label" id="label-4">Camera 4</div>
             </div>
         </div>
 
         <!-- 2. Status Overlay (Text/Messages on top) -->
         <div id="status-overlay">
-            <!-- <div class="status-text" id="status-text">WAITING FOR SIGNAL</div> -->
+            <!-- Bottom Status Bar -->
+            <div id="bottom-bar">
+                <div class="left-stats">
+                    <div id="rec-indicator" class="status-pill">REC</div>
+                    <div id="stream-indicator" class="status-pill">ON AIR</div>
+                </div>
+                <div class="right-stats">
+                    <div id="production-clock">00:00:00</div>
+                </div>
+            </div>
         </div>
 
         <canvas id="video-canvas"></canvas>
@@ -448,24 +499,49 @@
         dataWs.onmessage = (event) => {
             const msg = JSON.parse(event.data);
             if (msg.type === 'atem_state') {
-                updateTallyLights(msg.data);
+                updateInterface(msg.data);
             }
         };
 
-        function updateTallyLights(state) {
-            // Reset borders
+        function updateInterface(state) {
+            // 1. Tally Borders
             document.querySelectorAll('.mv-box').forEach(el => {
-                el.style.borderColor = '#555'; // Default Grey
+                el.style.borderColor = '#555';
             });
-
-            // Set Preview (Green)
-            // Note: Camera 1 is usually input 1, Cam 2 is 2, etc.
-            // Adjust logic if you use different mapping!
             if (state.preview > 0) updateBoxBorder(state.preview, '#00b500');
-
-            // Set Program (Red)
             if (state.program > 0) updateBoxBorder(state.program, '#c90000');
+
+            // 2. Status Indicators
+            const recEl = document.getElementById('rec-indicator');
+            const streamEl = document.getElementById('stream-indicator');
+
+            if (recEl) {
+                if (state.recording) recEl.classList.add('active');
+                else recEl.classList.remove('active');
+            }
+
+            if (streamEl) {
+                if (state.streaming) streamEl.classList.add('active');
+                else streamEl.classList.remove('active');
+            }
+
+            // 3. Dynamic Labels
+            if (state.inputs) {
+                for (const id in state.inputs) {
+                    const labelEl = document.getElementById(`label-${id}`);
+                    if (labelEl) {
+                        labelEl.innerText = state.inputs[id];
+                    }
+                }
+            }
         }
+
+        // Clock Logic
+        setInterval(() => {
+            const now = new Date();
+            const el = document.getElementById('production-clock');
+            if (el) el.innerText = now.toLocaleTimeString();
+        }, 1000);
 
         function updateBoxBorder(inputId, color) {
             // Mapping: Input ID -> CSS Class
