@@ -171,6 +171,27 @@ wss.on('connection', (ws, req) => {
             data: atemState
         }));
 
+        // Listen for Control Commands
+        ws.on('message', (message) => {
+            try {
+                const cmd = JSON.parse(message);
+                if (!atemConnected) return;
+
+                if (cmd.type === 'change_preview') {
+                    console.log(`Command: Preview ID ${cmd.input}`);
+                    myAtem.changePreviewInput(cmd.input).catch(e => console.log(e));
+                }
+                else if (cmd.type === 'perform_cut') {
+                    console.log('Command: CUT');
+                    myAtem.cut().catch(e => console.log(e));
+                }
+                else if (cmd.type === 'perform_auto') {
+                    console.log('Command: AUTO');
+                    myAtem.autoTransition().catch(e => console.log(e));
+                }
+            } catch (e) { console.error(e); }
+        });
+
         ws.on('close', () => dataClients.delete(ws));
     } else {
         console.log('Client connected to VIDEO channel');

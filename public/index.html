@@ -93,6 +93,17 @@
             /* Visible border */
             z-index: 2;
             /* Force visibility */
+            cursor: pointer;
+            transition: border-color 0.1s;
+        }
+
+        .mv-box:hover {
+            border-color: #fff !important;
+        }
+
+        .mv-preview,
+        .mv-program {
+            cursor: default;
         }
 
         /* Top Row: Preview and Program */
@@ -356,6 +367,70 @@
             color: #fff;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
         }
+
+        /* --- Transitions Controls (Overlay) --- */
+        #controls-layer {
+            position: absolute;
+            top: 50%;
+            /* Center vertically between rows approximately */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            gap: 20px;
+            z-index: 50;
+            /* Above video */
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            /* Pass through when hidden */
+        }
+
+        /* Show when hovering near center, or always if touch? Let's make it visible on hover of container */
+        #monitor-frame:hover #controls-layer {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .control-btn {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: 2px solid white;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            transition: all 0.1s;
+        }
+
+        .btn-cut {
+            border-color: #fff;
+        }
+
+        .btn-cut:hover {
+            background: #fff;
+            color: black;
+        }
+
+        .btn-cut:active {
+            transform: scale(0.95);
+        }
+
+        .btn-auto {
+            border-color: #00b500;
+            color: #00b500;
+        }
+
+        .btn-auto:hover {
+            background: #00b500;
+            color: white;
+        }
+
+        .btn-auto:active {
+            transform: scale(0.95);
+        }
     </style>
 </head>
 
@@ -391,6 +466,9 @@
 
         <!-- 2. Status Overlay (Text/Messages on top) -->
         <div id="status-overlay">
+
+            <!-- Controls Layer REMOVED -->
+
             <!-- Bottom Status Bar -->
             <div id="bottom-bar">
                 <div class="left-stats">
@@ -594,6 +672,19 @@
                 })
                 .catch(err => alert('Error saving settings'));
         }
+
+        // Send Command Helper
+        function sendCommand(type, payload = {}) {
+            if (dataWs.readyState === WebSocket.OPEN) {
+                dataWs.send(JSON.stringify({ type, ...payload }));
+            }
+        }
+
+        // Click Handlers
+        document.querySelector('.mv-cam1').onclick = () => sendCommand('change_preview', { input: 1 });
+        document.querySelector('.mv-cam2').onclick = () => sendCommand('change_preview', { input: 2 });
+        document.querySelector('.mv-cam3').onclick = () => sendCommand('change_preview', { input: 3 });
+        document.querySelector('.mv-cam4').onclick = () => sendCommand('change_preview', { input: 4 });
 
     </script>
 </body>
