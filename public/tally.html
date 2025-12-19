@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ATEM Tally Light</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: sans-serif;
+            overflow: hidden;
+            background: #000;
+            transition: background-color 0.1s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #555;
+        }
+
+        #cam-number {
+            font-size: 25vw;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        #cam-name {
+            font-size: 5vw;
+            text-transform: uppercase;
+            margin-top: 10px;
+        }
+
+        #selector-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .select-box {
+            background: #222;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        select {
+            padding: 15px;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            width: 200px;
+            background: #333;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 15px 30px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        /* Tally States */
+        body.preview {
+            background-color: #00b500;
+            color: white;
+        }
+
+        body.program {
+            background-color: #c90000;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="cam-number">1</div>
+    <div id="cam-name">CAMERA 1</div>
+
+    <div id="selector-overlay">
+        <div class="select-box">
+            <h2 style="color:white; margin-top:0;">Select Camera</h2>
+            <select id="cam-select">
+                <option value="1">Camera 1</option>
+                <option value="2">Camera 2</option>
+                <option value="3">Camera 3</option>
+                <option value="4">Camera 4</option>
+                <option value="5">Camera 5</option>
+                <option value="6">Camera 6</option>
+            </select>
+            <br>
+            <button onclick="startTally()">START TALLY</button>
+        </div>
+    </div>
+
+    <script>
+        let myInputId = 1;
+
+        function startTally() {
+            const select = document.getElementById('cam-select');
+            myInputId = parseInt(select.value);
+
+            // Update UI
+            document.getElementById('cam-number').innerText = myInputId;
+            document.getElementById('cam-name').innerText = select.options[select.selectedIndex].text;
+            document.getElementById('selector-overlay').style.display = 'none';
+
+            // Connect
+            connectWs();
+
+            // Request Fullscreen
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(e => { });
+            }
+        }
+
+        function connectWs() {
+            const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const url = `${proto}://${window.location.host}/data`;
+            const ws = new WebSocket(url);
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'atem_state') {
+                    updateState(msg.data);
+                }
+            };
+
+            ws.onclose = () => {
+                // Auto reconnect
+                setTimeout(connectWs, 2000);
+            };
+        }
+
+        function updateState(state) {
+            document.body.className = ''; // Reset
+
+            if (state.program === myInputId) {
+                document.body.classList.add('program');
+                // Vibrate if supported
+                if (navigator.vibrate) navigator.vibrate(200);
+            } else if (state.preview === myInputId) {
+                document.body.classList.add('preview');
+            }
+
+            // Update Dynamic Name if available
+            if (state.inputs && state.inputs[myInputId]) {
+                document.getElementById('cam-name').innerText = state.inputs[myInputId];
+            }
+        }
+    </script>
+</body>
+
+</html>

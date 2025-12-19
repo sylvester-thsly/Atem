@@ -81,6 +81,210 @@
             /* Lowest level */
         }
 
+        /* --- Mobile Responsive Layout (Premium App Feel) --- */
+        @media (max-width: 768px) {
+            .multiview-grid {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                width: 100vw;
+                background: #000;
+                overflow: hidden;
+                /* No scroll, everything fits */
+                gap: 4px;
+                padding: 4px;
+                box-sizing: border-box;
+            }
+
+            /* Top Section: Split PGM / PVW equally */
+            /* Actually, flex box wrapper needed for top? No, let's use Grid for 100% control */
+            .multiview-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                /* Rows: PVW (35%), PGM (35%), Cams (Rest) */
+                grid-template-rows: 35vh 35vh 1fr 40px;
+                gap: 4px;
+            }
+
+            .mv-preview {
+                grid-column: 1 / 3;
+                grid-row: 1;
+                border-radius: 8px;
+                border-width: 3px;
+            }
+
+            .mv-program {
+                grid-column: 1 / 3;
+                grid-row: 2;
+                border-radius: 8px;
+                border-width: 3px;
+            }
+
+            /* Bottom Section: Cameras in one row? Or 2x2 grid in remaining space? */
+            /* Let's try 2x2 grid in row 3 */
+            .mv-cam1 {
+                grid-column: 1;
+                grid-row: 3;
+            }
+
+            .mv-cam2 {
+                grid-column: 2;
+                grid-row: 3;
+            }
+
+            /* Wait, where do 3 & 4 go if only 3 rows? */
+            /* We need 4 rows for 2x2 grid of cameras? No, 2x2 fits in one visual block if we nest? 
+               Can't nest without changing HTML. 
+               Let's make rows 3 and 4 small. */
+
+            .multiview-grid {
+                grid-template-rows: 28vh 28vh 1fr 1fr 30px;
+            }
+
+            .mv-cam1 {
+                grid-column: 1;
+                grid-row: 3;
+            }
+
+            .mv-cam2 {
+                grid-column: 2;
+                grid-row: 3;
+            }
+
+            .mv-cam3 {
+                grid-column: 1;
+                grid-row: 4;
+            }
+
+            .mv-cam4 {
+                grid-column: 2;
+                grid-row: 4;
+            }
+
+            .mv-box {
+                border-radius: 6px;
+                background: #222;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            }
+
+            .label {
+                top: 5px;
+                left: 5px;
+                bottom: auto;
+                font-size: 10px;
+                background: rgba(0, 0, 0, 0.6);
+                padding: 2px 6px;
+                border-radius: 4px;
+            }
+
+            /* Minimal Footer */
+            #bottom-bar {
+                grid-row: 5;
+                grid-column: 1 / 3;
+                background: transparent;
+                padding: 0;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .left-stats {
+                display: none;
+            }
+
+            #production-clock {
+                font-size: 1rem;
+                color: #888;
+                text-shadow: none;
+                font-weight: normal;
+            }
+
+            #settings-btn {
+                display: none;
+            }
+
+            /* Hide settings on mobile monitor to keep clean */
+            .hint {
+                display: none;
+            }
+        }
+
+        /* --- Mobile Responsive Layout --- */
+        @media (max-width: 768px) {
+            .multiview-grid {
+                display: grid;
+                position: absolute;
+                /* Let it scroll */
+                grid-template-columns: 1fr 1fr;
+                /* Pvw (full), Pgm (full), Cams (2 rows of 2), Footer */
+                grid-template-rows: 25vh 25vh 15vh 15vh 80px;
+                overflow-y: auto;
+                height: 100vh;
+                width: 100%;
+                background: #000;
+            }
+
+            .mv-preview {
+                grid-column: 1 / 3;
+                /* Full Width */
+                grid-row: 1;
+                border-width: 3px;
+            }
+
+            .mv-program {
+                grid-column: 1 / 3;
+                /* Full Width */
+                grid-row: 2;
+                border-width: 3px;
+            }
+
+            /* Cameras 2x2 Grid below */
+            .mv-cam1 {
+                grid-column: 1;
+                grid-row: 3;
+            }
+
+            .mv-cam2 {
+                grid-column: 2;
+                grid-row: 3;
+            }
+
+            .mv-cam3 {
+                grid-column: 1;
+                grid-row: 4;
+            }
+
+            .mv-cam4 {
+                grid-column: 2;
+                grid-row: 4;
+            }
+
+            .label {
+                font-size: 12px;
+                padding: 4px 6px;
+            }
+
+            .hint {
+                display: none;
+            }
+
+            /* Fix status bar blocking content */
+            #bottom-bar {
+                position: relative;
+                /* Not sticky, at bottom of flow */
+                grid-row: 5;
+                grid-column: 1 / 3;
+                background: #111;
+            }
+
+            #settings-btn {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #333;
+                border: 1px solid white;
+            }
+        }
+
         .mv-box {
             background: #333;
             /* Lighter Grey to be more visible */
@@ -495,6 +699,14 @@
                     <label>ATEM IP Address</label>
                     <input type="text" id="ip-input" placeholder="192.168.1.50">
                 </div>
+
+                <div style="margin-bottom: 20px; text-align: center;">
+                    <a href="/tally.html" target="_blank"
+                        style="color: #00b500; text-decoration: none; font-weight: bold;">
+                        Open Mobile Tally View 📱
+                    </a>
+                </div>
+
                 <button class="btn-save" onclick="saveSettings()">Save & Connect</button>
                 <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
             </div>
